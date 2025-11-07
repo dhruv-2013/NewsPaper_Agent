@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-Powered News Aggregation Dashboard</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --surface: rgba(15, 23, 42, 0.68);
+            --surface-border: rgba(148, 163, 184, 0.18);
+            --surface-hover: rgba(59, 130, 246, 0.16);
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5f5;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #030712;
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .background-wrapper {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 0;
+        }
+
+        #background-canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .background-overlay {
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(circle at 20% 20%, rgba(56, 189, 248, 0.28), transparent 55%),
+                radial-gradient(circle at 80% 0%, rgba(244, 114, 182, 0.22), transparent 50%),
+                linear-gradient(120deg, rgba(15, 23, 42, 0.7), rgba(8, 11, 24, 0.9));
+            backdrop-filter: blur(42px);
+            opacity: 0.85;
+        }
+
+        .page-content {
+            position: relative;
+            z-index: 2;
+            padding: 56px 20px 80px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 32px;
+        }
+
+        .glass-panel {
+            background: var(--surface);
+            border: 1px solid var(--surface-border);
+            border-radius: 28px;
+            padding: 32px;
+            box-shadow: 0 24px 70px rgba(8, 11, 24, 0.55);
+            backdrop-filter: blur(22px);
+        }
+
+        .header {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .header h1 {
+            font-size: clamp(2.2rem, 4vw, 3rem);
+            letter-spacing: -0.01em;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            max-width: 620px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            position: relative;
+            padding: 12px 28px;
+            border-radius: 999px;
+            border: 1px solid transparent;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.3s ease, background 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.95), rgba(129, 140, 248, 0.85));
+            color: #fff;
+            box-shadow: 0 15px 35px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1.5px) scale(1.01);
+            box-shadow: 0 22px 45px rgba(129, 140, 248, 0.45);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-primary);
+            border-color: rgba(148, 163, 184, 0.35);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(148, 163, 184, 0.12);
+        }
+
+        .status {
+            margin-top: 8px;
+            padding: 12px 16px;
+            border-radius: 14px;
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            background: rgba(15, 23, 42, 0.75);
+            color: var(--text-secondary);
+            display: none;
+        }
+
+        .status.success {
+            display: block;
+            border-color: rgba(34, 197, 94, 0.25);
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(15, 23, 42, 0.85));
+            color: #bbf7d0;
+        }
+
+        .status.error {
+            display: block;
+            border-color: rgba(248, 113, 113, 0.25);
+            background: linear-gradient(135deg, rgba(248, 113, 113, 0.15), rgba(15, 23, 42, 0.85));
+            color: #fecaca;
+        }
+
+        .categories {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 28px;
+        }
+
+        .category-section {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .category-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            border-bottom: 1px solid rgba(226, 232, 240, 0.08);
+            padding-bottom: 12px;
+        }
+
+        .category-title {
+            font-size: 1.6rem;
+            font-weight: 700;
+            text-transform: capitalize;
+        }
+
+        .category-badge {
+            background: rgba(99, 102, 241, 0.18);
+            color: #a5b4fc;
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            border: 1px solid rgba(99, 102, 241, 0.25);
+        }
+
+        .highlight-card {
+            position: relative;
+            padding: 22px;
+            border-radius: 18px;
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.78), rgba(15, 23, 42, 0.82));
+            border: 1px solid rgba(99, 102, 241, 0.12);
+            transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        .highlight-card::before {
+            content: "";
+            position: absolute;
+            inset: 1px;
+            border-radius: inherit;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), transparent 65%);
+            opacity: 0;
+            transition: opacity 0.25s ease;
+        }
+
+        .highlight-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(129, 140, 248, 0.35);
+            box-shadow: 0 18px 38px rgba(99, 102, 241, 0.25);
+        }
+
+        .highlight-card:hover::before {
+            opacity: 1;
+        }
+
+        .highlight-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .highlight-summary {
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+
+        .highlight-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px;
+            font-size: 0.9rem;
+            color: rgba(226, 232, 240, 0.75);
+        }
+
+        .meta-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        .frequency-badge {
+            background: rgba(34, 197, 94, 0.18);
+            color: #bbf7d0;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-weight: 600;
+        }
+
+        .priority-badge {
+            background: rgba(248, 113, 113, 0.18);
+            color: #fecaca;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-weight: 600;
+        }
+
+        .chat-section {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .chat-header {
+            font-size: 1.6rem;
+            font-weight: 700;
+        }
+
+        .chat-container {
+            border-radius: 18px;
+            padding: 20px;
+            max-height: 420px;
+            overflow-y: auto;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+        }
+
+        .chat-message {
+            margin-bottom: 14px;
+            padding: 14px;
+            border-radius: 14px;
+            line-height: 1.5;
+        }
+
+        .chat-message.user {
+            background: linear-gradient(135deg, rgba(79, 70, 229, 0.85), rgba(129, 140, 248, 0.75));
+            color: #f5f3ff;
+            margin-left: 18%;
+        }
+
+        .chat-message.bot {
+            background: rgba(30, 41, 59, 0.85);
+            color: var(--text-secondary);
+            margin-right: 18%;
+            border: 1px solid rgba(148, 163, 184, 0.18);
+        }
+
+        .chat-input-container {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 14px 16px;
+            border-radius: 14px;
+            background: rgba(15, 23, 42, 0.65);
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            color: var(--text-primary);
+            font-size: 16px;
+        }
+
+        .chat-input:focus {
+            outline: none;
+            border-color: rgba(129, 140, 248, 0.55);
+            box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.18);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 48px 32px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state h3 {
+            margin-bottom: 12px;
+            color: var(--text-primary);
+            font-size: 1.4rem;
+        }
+
+        @media (max-width: 768px) {
+            .page-content {
+                padding: 32px 18px 60px;
+            }
+
+            .glass-panel {
+                border-radius: 22px;
+                padding: 24px;
+            }
+
+            .categories {
+                grid-template-columns: 1fr;
+            }
+
+            .chat-message.user,
+            .chat-message.bot {
+                margin-left: 0;
+                margin-right: 0;
+            }
+
+            .controls {
+                width: 100%;
+            }
+
+            .btn {
+                flex: 1;
+                justify-content: center;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="background-wrapper">
+        <canvas id="background-canvas"></canvas>
+        <div class="background-overlay"></div>
+    </div>
+    <div class="page-content">
+        <div class="container">
+            <header class="header glass-panel">
+                <h1>📰 AI-Powered News Aggregation</h1>
+                <p>Daily highlights sourced across Australian outlets, distilled into crisp summaries and surfaced with intelligent prioritisation.</p>
+                
+                <div class="controls">
+                    <button class="btn btn-primary" onclick="extractNews()">
+                        🔄 Extract News Now
+                    </button>
+                    <button class="btn btn-secondary" onclick="refreshHighlights()">
+                        ↻ Refresh Highlights
+                    </button>
+                </div>
+                
+                <div id="status" class="status"></div>
+            </header>
+
+            <section class="highlights-section">
+                <div class="categories" id="categories-container">
+                    <!-- Categories will be populated here -->
+                </div>
+            </section>
+
+            <section class="chat-section glass-panel">
+                <div class="chat-header">💬 Ask About News Highlights</div>
+                <div class="chat-container" id="chat-container">
+                    <div class="chat-message bot">
+                        <strong>Bot:</strong> Hello! I can help you find information about the news highlights. Try asking questions like "What are the top sports news?" or "Tell me about breaking news in finance."
+                    </div>
+                </div>
+                <div class="chat-input-container">
+                    <input 
+                        type="text" 
+                        class="chat-input" 
+                        id="chat-input" 
+                        placeholder="Ask a question about the news..."
+                        onkeypress="handleChatKeyPress(event)"
+                    >
+                    <button class="btn btn-primary" onclick="sendChatMessage()">Send</button>
+                </div>
+            </section>
+        </div>
+    </div>
+    
+    <script>
+        let backgroundInitialized = false;
+
+        function initAmbientBackground() {
+            if (backgroundInitialized) return;
+            backgroundInitialized = true;
+
+            const canvas = document.getElementById('background-canvas');
+            if (!canvas) return;
+
+            const ctx = canvas.getContext('2d', { alpha: true });
+            if (!ctx) return;
+
+            const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+            const config = {
+                numBalls: 200,
+                minRadius: 0.6,
+                maxRadius: 2.6,
+                speed: 0.35,
+                bounceDamping: 0.9,
+                gravity: 0.00035,
+                friction: 0.993,
+                interactionRadius: 150,
+                interactionScale: 3.2,
+                followMouse: true,
+                trailAlpha: 0.82,
+                glow: true,
+                parallax: 0.28,
+                colors: [
+                    'rgba(99, 102, 241, 0.65)',
+                    'rgba(56, 189, 248, 0.6)',
+                    'rgba(236, 72, 153, 0.6)',
+                    'rgba(251, 191, 36, 0.5)'
+                ]
+            };
+
+            let width = 0;
+            let height = 0;
+            let dpr = window.devicePixelRatio || 1;
+            let animationId;
+            let balls = [];
+
+            const mouse = { x: 0, y: 0, active: false };
+
+            const resizeCanvas = () => {
+                dpr = window.devicePixelRatio || 1;
+                width = window.innerWidth;
+                height = window.innerHeight;
+                canvas.width = width * dpr;
+                canvas.height = height * dpr;
+                canvas.style.width = width + 'px';
+                canvas.style.height = height + 'px';
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.scale(dpr, dpr);
+                balls = Array.from({ length: config.numBalls }, createBall);
+            };
+
+            const randomColor = () => config.colors[Math.floor(Math.random() * config.colors.length)];
+
+            function createBall() {
+                const radius = Math.random() * (config.maxRadius - config.minRadius) + config.minRadius;
+                return {
+                    color: randomColor(),
+                    baseRadius: radius,
+                    radius,
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    scaleX: 1,
+                    scaleY: 1,
+                    rotation: Math.random() * Math.PI * 2,
+                    vx: (Math.random() * 2 - 1) * config.speed,
+                    vy: (Math.random() * 2 - 1) * config.speed
+                };
+            }
+
+            function updateBall(ball) {
+                if (!prefersReducedMotion) {
+                    ball.vy += config.gravity * height;
+                    ball.vx *= config.friction;
+                    ball.vy *= config.friction;
+                }
+
+                ball.x += ball.vx;
+                ball.y += ball.vy;
+
+                if (ball.x + ball.baseRadius > width) {
+                    ball.x = width - ball.baseRadius;
+                    ball.vx *= -config.bounceDamping;
+                } else if (ball.x - ball.baseRadius < 0) {
+                    ball.x = ball.baseRadius;
+                    ball.vx *= -config.bounceDamping;
+                }
+
+                if (ball.y + ball.baseRadius > height) {
+                    ball.y = height - ball.baseRadius;
+                    ball.vy *= -config.bounceDamping;
+                } else if (ball.y - ball.baseRadius < 0) {
+                    ball.y = ball.baseRadius;
+                    ball.vy *= -config.bounceDamping;
+                }
+
+                if (mouse.active) {
+                    const dx = mouse.x - ball.x;
+                    const dy = mouse.y - ball.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy) || 1;
+
+                    if (config.followMouse && distance < config.interactionRadius * 1.4) {
+                        const force = (1 - distance / (config.interactionRadius * 1.4)) * 0.4;
+                        ball.vx += (dx / distance) * force;
+                        ball.vy += (dy / distance) * force;
+                    }
+
+                    if (distance < config.interactionRadius) {
+                        const scale = config.interactionScale - (distance / config.interactionRadius) * (config.interactionScale - 1);
+                        ball.scaleX = ball.scaleY = scale;
+                        ball.radius = ball.baseRadius * scale;
+                    } else if (distance < config.interactionRadius * 1.5) {
+                        const scale = 1 + (config.interactionScale - 1) * 0.4 * (1 - (distance - config.interactionRadius) / (config.interactionRadius * 0.5));
+                        ball.scaleX = ball.scaleY = scale;
+                        ball.radius = ball.baseRadius * scale;
+                    } else {
+                        ball.scaleX = ball.scaleY = 1;
+                        ball.radius = ball.baseRadius;
+                    }
+
+                    if (config.parallax) {
+                        ball.x += (mouse.x - width / 2) * config.parallax * ball.baseRadius * 0.00025;
+                        ball.y += (mouse.y - height / 2) * config.parallax * ball.baseRadius * 0.00025;
+                    }
+                } else {
+                    ball.scaleX = ball.scaleY = 1;
+                    ball.radius = ball.baseRadius;
+                }
+            }
+
+            function drawBall(ball) {
+                ctx.save();
+                ctx.translate(ball.x, ball.y);
+                ctx.rotate(ball.rotation);
+
+                if (config.glow) {
+                    ctx.shadowColor = ball.color;
+                    ctx.shadowBlur = ball.radius * 6;
+                }
+
+                ctx.beginPath();
+                ctx.fillStyle = ball.color;
+                ctx.ellipse(0, 0, ball.radius * ball.scaleX, ball.radius * ball.scaleY, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            function clearCanvas() {
+                if (config.trailAlpha < 1) {
+                    ctx.fillStyle = `rgba(3, 7, 18, ${1 - config.trailAlpha})`;
+                    ctx.fillRect(0, 0, width, height);
+                } else {
+                    ctx.clearRect(0, 0, width, height);
+                }
+            }
+
+            function render() {
+                animationId = requestAnimationFrame(render);
+                clearCanvas();
+                balls.forEach(ball => {
+                    updateBall(ball);
+                    drawBall(ball);
+                });
+            }
+
+            const handleMouseMove = (event) => {
+                mouse.x = event.clientX;
+                mouse.y = event.clientY;
+                mouse.active = true;
+            };
+
+            const handleMouseLeave = () => {
+                mouse.active = false;
+            };
+
+            const handleVisibilityChange = () => {
+                if (document.hidden && animationId) {
+                    cancelAnimationFrame(animationId);
+                    animationId = undefined;
+                } else if (!document.hidden && !animationId && !prefersReducedMotion) {
+                    animationId = requestAnimationFrame(render);
+                }
+            };
+
+            const handleResize = () => {
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                resizeCanvas();
+            };
+
+            resizeCanvas();
+
+            if (!prefersReducedMotion) {
+                animationId = requestAnimationFrame(render);
+            } else {
+                clearCanvas();
+            }
+
+            window.addEventListener('resize', handleResize);
+            window.addEventListener('mousemove', handleMouseMove);
+            window.addEventListener('mouseleave', handleMouseLeave);
+            document.addEventListener('visibilitychange', handleVisibilityChange);
+        }
+
+        // Initialize UI once the DOM is ready
+        window.addEventListener('DOMContentLoaded', () => {
+            initAmbientBackground();
+            loadHighlights();
+        });
+        
+        async function extractNews() {
+            const statusEl = document.getElementById('status');
+            statusEl.className = 'status';
+            statusEl.textContent = 'Starting news extraction...';
+            statusEl.classList.add('success');
+            
+            try {
+                const response = await fetch('/api/extract', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({categories: null, force_refresh: true})
+                });
+                
+                const data = await response.json();
+                statusEl.textContent = `✅ ${data.message}. Processing in background...`;
+                
+                // Refresh highlights after a delay
+                setTimeout(() => {
+                    loadHighlights();
+                }, 5000);
+            } catch (error) {
+                statusEl.textContent = `❌ Error: ${error.message}`;
+                statusEl.classList.remove('success');
+                statusEl.classList.add('error');
+            }
+        }
+        
+        async function refreshHighlights() {
+            const statusEl = document.getElementById('status');
+            statusEl.className = 'status success';
+            statusEl.textContent = 'Refreshing highlights...';
+            
+            await loadHighlights();
+            statusEl.textContent = '✅ Highlights refreshed!';
+        }
+        
+        async function loadHighlights() {
+            try {
+                const response = await fetch('/api/highlights?limit=50');
+                const data = await response.json();
+                
+                const highlights = data.highlights || [];
+                const categories = ['sports', 'lifestyle', 'music', 'finance'];
+                
+                const container = document.getElementById('categories-container');
+                container.innerHTML = '';
+                
+                categories.forEach(category => {
+                    const categoryHighlights = highlights.filter(h => h.category === category);
+                    
+                    if (categoryHighlights.length === 0) {
+                        return;
+                    }
+                    
+                    const categorySection = document.createElement('div');
+                    categorySection.className = 'category-section glass-panel';
+                    
+                    categorySection.innerHTML = `
+                        <div class="category-header">
+                            <span class="category-title">${category}</span>
+                            <span class="category-badge">${categoryHighlights.length} highlights</span>
+                        </div>
+                        <div id="highlights-${category}"></div>
+                    `;
+                    
+                    container.appendChild(categorySection);
+                    
+                    const highlightsContainer = document.getElementById(`highlights-${category}`);
+                    
+                    categoryHighlights.forEach(highlight => {
+                        const card = document.createElement('div');
+                        card.className = 'highlight-card';
+                        
+                        // Escape HTML to prevent XSS
+                        const escapeHtml = (text) => {
+                            const div = document.createElement('div');
+                            div.textContent = text;
+                            return div.innerHTML;
+                        };
+                        
+                        const title = escapeHtml(highlight.title);
+                        const summary = escapeHtml(highlight.summary);
+                        const priorityBadge = highlight.priority_score > 0 
+                            ? '<span class="priority-badge">🔥 Priority</span>' 
+                            : '';
+                        const author = highlight.authors && highlight.authors.length > 0 
+                            ? `<span class="meta-item">✍️ ${escapeHtml(highlight.authors[0])}</span>` 
+                            : '';
+                        
+                        card.innerHTML = `
+                            <div class="highlight-title">${title}</div>
+                            <div class="highlight-summary">${summary}</div>
+                            <div class="highlight-meta">
+                                <span class="meta-item">
+                                    <span class="frequency-badge">📊 ${highlight.frequency}x</span>
+                                </span>
+                                ${priorityBadge}
+                                <span class="meta-item">📰 ${highlight.sources.length} source(s)</span>
+                                ${author}
+                            </div>
+                        `;
+                        
+                        highlightsContainer.appendChild(card);
+                    });
+                });
+                
+                if (highlights.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <h3>No highlights yet</h3>
+                            <p>Click "Extract News Now" to start gathering news articles.</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading highlights:', error);
+            }
+        }
+        
+        async function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            // Add user message to chat
+            addChatMessage(message, 'user');
+            input.value = '';
+            
+            // Show loading
+            const loadingMsg = addChatMessage('Thinking...', 'bot');
+            
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({message: message})
+                });
+                
+                const data = await response.json();
+                
+                // Remove loading message
+                loadingMsg.remove();
+                
+                // Add bot response
+                addChatMessage(data.response, 'bot');
+            } catch (error) {
+                loadingMsg.remove();
+                addChatMessage(`Error: ${error.message}`, 'bot');
+            }
+        }
+        
+        function addChatMessage(text, type) {
+            const container = document.getElementById('chat-container');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message ${type}`;
+            
+            // Escape HTML to prevent XSS
+            const escapeHtml = (text) => {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            };
+            
+            const label = type === 'user' ? 'You' : 'Bot';
+            const escapedText = escapeHtml(text);
+            messageDiv.innerHTML = `<strong>${label}:</strong> ${escapedText}`;
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+            return messageDiv;
+        }
+        
+        function handleChatKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendChatMessage();
+            }
+        }
+    </script>
+</body>
+</html>
+
