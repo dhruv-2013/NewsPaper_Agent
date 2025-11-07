@@ -440,10 +440,10 @@
                 numBalls: 200,
                 minRadius: 0.6,
                 maxRadius: 2.6,
-                speed: 0.35,
-                bounceDamping: 0.9,
-                gravity: 0.00035,
-                friction: 0.993,
+                speed: 0.45,
+                bounceDamping: 0.98,
+                gravity: 0,
+                friction: 0.9965,
                 interactionRadius: 150,
                 interactionScale: 3.2,
                 followMouse: true,
@@ -523,6 +523,14 @@
                     ball.vy *= -config.bounceDamping;
                 }
 
+                const minVelocity = 0.08;
+                if (Math.abs(ball.vx) < minVelocity) {
+                    ball.vx += (Math.random() * 2 - 1) * 0.18;
+                }
+                if (Math.abs(ball.vy) < minVelocity) {
+                    ball.vy += (Math.random() * 2 - 1) * 0.18;
+                }
+
                 if (mouse.active) {
                     const dx = mouse.x - ball.x;
                     const dy = mouse.y - ball.y;
@@ -555,6 +563,11 @@
                     ball.scaleX = ball.scaleY = 1;
                     ball.radius = ball.baseRadius;
                 }
+
+                if (ball.x < -ball.baseRadius) ball.x = width + ball.baseRadius;
+                if (ball.x > width + ball.baseRadius) ball.x = -ball.baseRadius;
+                if (ball.y < -ball.baseRadius) ball.y = height + ball.baseRadius;
+                if (ball.y > height + ball.baseRadius) ball.y = -ball.baseRadius;
             }
 
             function drawBall(ball) {
