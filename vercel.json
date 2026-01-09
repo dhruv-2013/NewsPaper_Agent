@@ -1,4 +1,5 @@
 {
+  "installCommand": "pip install --upgrade pip && pip install fastapi uvicorn pydantic requests beautifulsoup4 lxml openai python-dotenv python-multipart jinja2 python-dateutil && pip install numpy scikit-learn && pip install sentence-transformers && pip install chromadb",
   "rewrites": [
     {
       "source": "/(.*)",
