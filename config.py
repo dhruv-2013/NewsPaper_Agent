@@ -59,6 +59,6 @@ DATABASE_PATH = "news_data.db"
 VECTOR_DB_PATH = "chroma_db"
 
 # API Settings
-API_HOST = "0.0.0.0"
-API_PORT = 8000
+API_HOST = os.getenv("API_HOST", "0.0.0.0")
+API_PORT = int(os.getenv("PORT", os.getenv("API_PORT", "8000")))
 
