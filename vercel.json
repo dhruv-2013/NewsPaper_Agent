@@ -2,11 +2,17 @@
   "installCommand": "pip install --upgrade pip setuptools wheel && pip install -r requirements.txt --no-cache-dir",
   "buildCommand": "python -c 'pass'",
   "functions": {
-    "**/*.py": {
+    "api/index.py": {
       "memory": 2048,
       "maxDuration": 60
     }
   },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api/index"
+    }
+  ],
   "env": {
     "PYTHONUNBUFFERED": "1",
     "TRANSFORMERS_OFFLINE": "1",
