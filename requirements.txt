@@ -9,9 +9,9 @@ python-dotenv==1.0.0
 python-multipart==0.0.6
 jinja2==3.1.2
 python-dateutil==2.8.2
-# ML dependencies - installed separately to manage memory
-numpy==1.24.4
-scikit-learn==1.3.2
-sentence-transformers==2.2.2
-chromadb==0.4.18
+# ML dependencies - updated for Python 3.12 compatibility
+numpy>=1.26.0
+scikit-learn>=1.3.2
+sentence-transformers>=2.2.2
+chromadb>=0.4.18
 
