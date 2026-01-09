@@ -40,19 +40,43 @@ class CSPMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(CSPMiddleware)
 
-# Initialize components
+# Initialize lightweight components only
 extractor = NewsExtractor()
-ai_processor = AIProcessor()
 database = NewsDatabase()
-chatbot = RAGChatbot()
+
+# Heavy ML components - lazy initialization on first request
+ai_processor = None
+chatbot = None
 
 # Templates
 templates = Jinja2Templates(directory="templates")
 
 
+def get_ai_processor():
+    """Get or create AI processor instance (lazy loading)."""
+    global ai_processor
+    if ai_processor is None:
+        logger.info("Initializing AI processor...")
+        ai_processor = AIProcessor()
+    return ai_processor
+
+
+def get_chatbot():
+    """Get or create chatbot instance (lazy loading)."""
+    global chatbot
+    if chatbot is None:
+        logger.info("Initializing RAG chatbot...")
+        chatbot = RAGChatbot()
+    return chatbot
+
+
 def process_news_pipeline(categories: Optional[List[str]] = None):
     """Process news extraction, categorization, and highlight generation."""
     try:
+        # Lazy load AI processor on first use
+        processor = get_ai_processor()
+        rag_bot = get_chatbot()
+        
         logger.info("Starting news processing pipeline...")
         
         if categories is None:
@@ -80,8 +104,8 @@ def process_news_pipeline(categories: Optional[List[str]] = None):
             for idx, article in enumerate(articles):
                 try:
                     if not article.category:
-                        article.category = ai_processor.categorize_article(article)
-                    article.summary = ai_processor.summarize_article(article)
+                        article.category = processor.categorize_article(article)
+                    article.summary = processor.summarize_article(article)
                     if (idx + 1) % 5 == 0:
                         logger.info(f"Processed {idx + 1}/{len(articles)} articles for {category}")
                 except Exception as e:
@@ -99,7 +123,7 @@ def process_news_pipeline(categories: Optional[List[str]] = None):
         
         # Detect duplicates
         logger.info("Detecting duplicates...")
-        all_articles = ai_processor.detect_duplicates(all_articles)
+        all_articles = processor.detect_duplicates(all_articles)
         unique_count = len([a for a in all_articles if not a.is_duplicate])
         logger.info(f"Found {len(all_articles) - unique_count} duplicates, {unique_count} unique articles")
         
@@ -111,7 +135,7 @@ def process_news_pipeline(categories: Optional[List[str]] = None):
         logger.info("Generating highlights...")
         all_highlights = []
         for category in categories:
-            highlights = ai_processor.generate_highlights(all_articles, category)
+            highlights = processor.generate_highlights(all_articles, category)
             logger.info(f"Generated {len(highlights)} highlights for {category}")
             all_highlights.extend(highlights)
         
@@ -121,7 +145,7 @@ def process_news_pipeline(categories: Optional[List[str]] = None):
         
         # Index highlights for RAG
         logger.info("Indexing highlights for RAG chatbot...")
-        chatbot.index_highlights(all_highlights)
+        rag_bot.index_highlights(all_highlights)
         
         logger.info(f"News processing pipeline completed successfully: {len(all_articles)} articles, {len(all_highlights)} highlights")
         return {"status": "success", "articles_count": len(all_articles), "highlights_count": len(all_highlights)}
@@ -198,7 +222,8 @@ async def get_articles(category: Optional[str] = None):
 async def chat(message: ChatMessage):
     """Chat with the RAG chatbot."""
     try:
-        response_text = chatbot.query(message.message)
+        bot = get_chatbot()
+        response_text = bot.query(message.message)
         return {
             "message": message.message,
             "response": response_text,

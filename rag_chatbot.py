@@ -1,12 +1,12 @@
 """RAG-based chatbot for querying news highlights."""
 import logging
 from typing import List, Optional
-from sentence_transformers import SentenceTransformer
 import chromadb
 from chromadb.config import Settings
 import config
 from models import Highlight, ChatMessage
 from openai import OpenAI
+from embedding_model import get_embedding_model
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -27,22 +27,41 @@ class RAGChatbot:
     """RAG-based chatbot for news highlights."""
     
     def __init__(self):
-        logger.info("Initializing RAG chatbot...")
-        self.embedding_model = SentenceTransformer(config.EMBEDDING_MODEL)
-        
-        # Initialize ChromaDB
-        self.client = chromadb.PersistentClient(
-            path=config.VECTOR_DB_PATH,
-            settings=Settings(anonymized_telemetry=False)
-        )
-        
-        # Get or create collection
-        self.collection = self.client.get_or_create_collection(
-            name="news_highlights",
-            metadata={"hnsw:space": "cosine"}
-        )
-        
-        logger.info("RAG chatbot initialized")
+        # Use lazy loading - models and DB will be initialized on first use
+        self._embedding_model = None
+        self._client = None
+        self._collection = None
+        logger.info("RAG chatbot instance created (lazy initialization)")
+    
+    @property
+    def embedding_model(self):
+        """Lazy load embedding model on first access."""
+        if self._embedding_model is None:
+            self._embedding_model = get_embedding_model()
+        return self._embedding_model
+    
+    @property
+    def client(self):
+        """Lazy load ChromaDB client on first access."""
+        if self._client is None:
+            logger.info("Initializing ChromaDB client...")
+            self._client = chromadb.PersistentClient(
+                path=config.VECTOR_DB_PATH,
+                settings=Settings(anonymized_telemetry=False)
+            )
+        return self._client
+    
+    @property
+    def collection(self):
+        """Lazy load ChromaDB collection on first access."""
+        if self._collection is None:
+            logger.info("Getting or creating ChromaDB collection...")
+            self._collection = self.client.get_or_create_collection(
+                name="news_highlights",
+                metadata={"hnsw:space": "cosine"}
+            )
+            logger.info("RAG chatbot fully initialized")
+        return self._collection
     
     def index_highlights(self, highlights: List[Highlight]):
         """Index highlights in the vector database."""

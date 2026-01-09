@@ -2,13 +2,13 @@
 import logging
 from typing import List, Dict, Tuple
 import numpy as np
-from sentence_transformers import SentenceTransformer
 from sklearn.cluster import DBSCAN
 from sklearn.metrics.pairwise import cosine_similarity
 from models import Article, Highlight
 import config
 from openai import OpenAI
 from datetime import datetime
+from embedding_model import get_embedding_model
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -32,9 +32,15 @@ class AIProcessor:
     """Handles AI-powered processing of news articles."""
     
     def __init__(self):
-        logger.info("Loading embedding model...")
-        self.embedding_model = SentenceTransformer(config.EMBEDDING_MODEL)
-        logger.info("Embedding model loaded")
+        # Use lazy loading - model will be loaded on first use
+        self._embedding_model = None
+    
+    @property
+    def embedding_model(self):
+        """Lazy load embedding model on first access."""
+        if self._embedding_model is None:
+            self._embedding_model = get_embedding_model()
+        return self._embedding_model
     
     def categorize_article(self, article: Article) -> str:
         """Categorize an article using AI."""

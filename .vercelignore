@@ -1,0 +1,27 @@
+# Exclude large files and directories from Vercel deployment
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.chroma_db/
+chroma_db/
+*.db
+*.sqlite
+*.sqlite3
+news_data.db
+.pytest_cache/
+.coverage
+htmlcov/
+.env.local
+.env.*.local
+.vscode/
+.idea/
+*.log
+
